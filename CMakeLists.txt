@@ -34,6 +34,7 @@ target_sources(${TARGET_NAME} PRIVATE
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE source)
+target_compile_options(${TARGET_NAME} PRIVATE -Wno-c++11-narrowing)
 
 if(ANDROID)
     target_link_libraries(${TARGET_NAME} PRIVATE SDL2::SDL2 GLESv2)
