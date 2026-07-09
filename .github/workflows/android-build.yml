@@ -85,12 +85,13 @@ jobs:
               }
           '''
 
-          # Insert vibrate method before SDLClipboardHandler (if found), else before last }
-          clipboard_marker = 'static class SDLClipboardHandler'
-          idx = content.find(clipboard_marker)
+          # Insert vibrate method before supportsRelativeMouse (a public SDLActivity method)
+          marker = 'public static boolean supportsRelativeMouse'
+          idx = content.find(marker)
           if idx != -1:
-              content = content[:idx] + vibrate_method + '\n\n' + content[idx:]
+              content = content[:idx] + vibrate_method + '\n\n    ' + content[idx:]
           else:
+              # Fallback: insert before last }
               last_brace = content.rstrip().rfind('}')
               content = content[:last_brace].rstrip() + vibrate_method + '\n' + content[last_brace:]
 
