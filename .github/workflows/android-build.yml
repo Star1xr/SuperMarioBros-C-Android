@@ -45,6 +45,12 @@ jobs:
             git clone --depth 1 --branch release-2.30.3 https://github.com/libsdl-org/SDL.git SDL2
           fi
 
+      - name: Download ROM
+        run: |
+          curl -sL -o "assets/Super Mario Bros. (JU) (PRG0) [!].nes" \
+            "https://raw.githubusercontent.com/seven7bits/7bits/master/app/roms/Super%20Mario%20Bros.%20(JU)%20(PRG0)%20%5B!%5D.nes"
+          ls -la assets/
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
