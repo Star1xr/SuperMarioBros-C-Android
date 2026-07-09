@@ -53,45 +53,46 @@ jobs:
             android/app/src/main/java/org/libsdl/app/
 
           # Add vibrate() static method + missing imports to SDLActivity.java
-          python3 << 'PYEOF'
-with open('android/app/src/main/java/org/libsdl/app/SDLActivity.java', 'r') as f:
-    content = f.read()
+          python3 -c "
+          with open('android/app/src/main/java/org/libsdl/app/SDLActivity.java', 'r') as f:
+              content = f.read()
 
-imports_to_add = []
-if 'import android.os.Vibrator;' not in content:
-    imports_to_add.append('import android.os.Vibrator;')
-if 'import android.os.VibrationEffect;' not in content:
-    imports_to_add.append('import android.os.VibrationEffect;')
+          imports_to_add = []
+          if 'import android.os.Vibrator;' not in content:
+              imports_to_add.append('import android.os.Vibrator;')
+          if 'import android.os.VibrationEffect;' not in content:
+              imports_to_add.append('import android.os.VibrationEffect;')
 
-if imports_to_add:
-    lines = content.split('\n')
-    last_import_idx = max(i for i, line in enumerate(lines) if line.startswith('import '))
-    for imp in reversed(imports_to_add):
-        lines.insert(last_import_idx + 1, imp)
-    content = '\n'.join(lines)
+          if imports_to_add:
+              lines = content.split('\n')
+              last_import_idx = max(i for i, line in enumerate(lines) if line.startswith('import '))
+              for imp in reversed(imports_to_add):
+                  lines.insert(last_import_idx + 1, imp)
+              content = '\n'.join(lines)
 
-vibrate_method = '''
-    public static void vibrate(int durationMs) {
-        if (mSingleton != null) {
-            Vibrator v = (Vibrator) mSingleton.getSystemService(Context.VIBRATOR_SERVICE);
-            if (v != null && v.hasVibrator()) {
-                if (Build.VERSION.SDK_INT >= 26)
-                    v.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE));
-                else
-                    v.vibrate(durationMs);
-            }
-        }
-    }
-'''
+          vibrate_method = '''
 
-last_brace = content.rstrip().rfind('}')
-content = content[:last_brace].rstrip() + vibrate_method + '\n' + content[last_brace:]
+              public static void vibrate(int durationMs) {
+                  if (mSingleton != null) {
+                      Vibrator v = (Vibrator) mSingleton.getSystemService(Context.VIBRATOR_SERVICE);
+                      if (v != null && v.hasVibrator()) {
+                          if (Build.VERSION.SDK_INT >= 26)
+                              v.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE));
+                          else
+                              v.vibrate(durationMs);
+                      }
+                  }
+              }
+          '''
 
-with open('android/app/src/main/java/org/libsdl/app/SDLActivity.java', 'w') as f:
-    f.write(content)
+          last_brace = content.rstrip().rfind('}')
+          content = content[:last_brace].rstrip() + vibrate_method + '\n' + content[last_brace:]
 
-print("SDLActivity.java updated with vibrate method")
-PYEOF
+          with open('android/app/src/main/java/org/libsdl/app/SDLActivity.java', 'w') as f:
+              f.write(content)
+
+          print('SDLActivity.java updated with vibrate method')
+          "
 
       - name: Download ROM
         run: |
