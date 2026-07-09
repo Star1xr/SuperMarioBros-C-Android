@@ -8,12 +8,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(ANDROID)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     add_library(main SHARED)
-    include_directories(${CMAKE_SOURCE_DIR}/SDL2/include)
+    set(TARGET_NAME main)
 else()
     add_executable(SuperMarioBros-C)
+    set(TARGET_NAME SuperMarioBros-C)
 endif()
 
-target_sources(SuperMarioBros-C PRIVATE
+set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "")
+set(SDL2_DISABLE_INSTALL ON CACHE BOOL "")
+add_subdirectory(${CMAKE_SOURCE_DIR}/SDL2)
+
+target_sources(${TARGET_NAME} PRIVATE
     source/Main.cpp
     source/Configuration.cpp
     source/OpenGLRendering.cpp
@@ -28,10 +33,10 @@ target_sources(SuperMarioBros-C PRIVATE
     source/Util/Video.cpp
 )
 
-target_include_directories(SuperMarioBros-C PRIVATE source)
+target_include_directories(${TARGET_NAME} PRIVATE source)
 
 if(ANDROID)
-    target_link_libraries(main PRIVATE SDL2-static GLESv2)
+    target_link_libraries(${TARGET_NAME} PRIVATE SDL2::SDL2 GLESv2)
 else()
-    target_link_libraries(SuperMarioBros-C PRIVATE SDL2-static opengl32)
+    target_link_libraries(${TARGET_NAME} PRIVATE SDL2::SDL2 opengl32)
 endif()
