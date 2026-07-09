@@ -59,20 +59,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK as artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SuperMarioBros-C-Android
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-
-      - name: Upload APK to Release
-        uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/master'
-        with:
-          tag_name: continuous
-          name: Latest Build
-          files: android/app/build/outputs/apk/debug/*.apk
-          fail_on_unmatched_files: false
-          generate_release_notes: false
-          make_latest: false
