@@ -15,8 +15,6 @@
                   android:screenOrientation="sensorLandscape"
                   android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 
-            <meta-data android:name="android.app.lib_name" android:value="main" />
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
