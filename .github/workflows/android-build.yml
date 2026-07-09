@@ -85,8 +85,14 @@ jobs:
               }
           '''
 
-          last_brace = content.rstrip().rfind('}')
-          content = content[:last_brace].rstrip() + vibrate_method + '\n' + content[last_brace:]
+          # Insert vibrate method before SDLClipboardHandler (if found), else before last }
+          clipboard_marker = 'static class SDLClipboardHandler'
+          idx = content.find(clipboard_marker)
+          if idx != -1:
+              content = content[:idx] + vibrate_method + '\n\n' + content[idx:]
+          else:
+              last_brace = content.rstrip().rfind('}')
+              content = content[:last_brace].rstrip() + vibrate_method + '\n' + content[last_brace:]
 
           with open('android/app/src/main/java/org/libsdl/app/SDLActivity.java', 'w') as f:
               f.write(content)
