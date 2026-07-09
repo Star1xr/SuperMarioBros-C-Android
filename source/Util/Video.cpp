@@ -1,4 +1,5 @@
 #include <iostream>
+#include <SDL.h>
 
 #include "../Constants.hpp"
 
@@ -180,20 +181,22 @@ const uint32_t* loadPalette(const std::string& fileName)
 {
 	uint32_t* palette = nullptr;
 
-	FILE* file;
-	errno_t err;
-	if ((err = fopen_s(&file, fileName.c_str(), "r")) == 0)
+	SDL_RWops* file = SDL_RWFromFile(fileName.c_str(), "rb");
+	if (file != nullptr)
 	{
 		// Find the size of the file
 		//
-		fseek(file, 0L, SEEK_END);
-		size_t fileSize = ftell(file);
-		fseek(file, 0L, SEEK_SET);
+		Sint64 fileSize = SDL_RWsize(file);
+		if (fileSize <= 0)
+		{
+			SDL_RWclose(file);
+			return nullptr;
+		}
 
 		// Read the entire file into a buffer
 		//
-		uint8_t* fileBuffer = new uint8_t[fileSize];
-		fread(fileBuffer, sizeof(uint8_t), fileSize, file);
+		uint8_t* fileBuffer = new uint8_t[static_cast<size_t>(fileSize)];
+		SDL_RWread(file, fileBuffer, sizeof(uint8_t), static_cast<size_t>(fileSize));
 
 		// Size determines the type of palette file
 		//
@@ -216,7 +219,7 @@ const uint32_t* loadPalette(const std::string& fileName)
 			std::cout << "Unsupported palette file \"" << fileName << "\"" << std::endl;
 		}
 
-		fclose(file);
+		SDL_RWclose(file);
 	}
 	else
 	{

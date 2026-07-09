@@ -11,6 +11,7 @@
 #include "Constants.hpp"
 #include "OpenGLRendering.hpp"
 
+#ifndef __ANDROID__
 PFNGLCREATEPROGRAMPROC glCreateProgram;
 PFNGLCREATESHADERPROC glCreateShader;
 PFNGLSHADERSOURCEPROC glShaderSource;
@@ -35,6 +36,7 @@ PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
 PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
 PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
 PFNGLUNIFORM2FVPROC glUniform2fv;
+#endif
 
 static GLuint VertexCoordLocation;
 static GLuint ColorLocation;
@@ -79,10 +81,14 @@ bool processShaderProgram(const std::string& glslSource, GLuint& outProgramId);
 
 /// <summary>
 /// Initialize OpenGL extensions obtained from SDL2.
+/// On Android/GLES these functions are directly linked.
 /// </summary>
 /// <returns>returns True if the extensions could be loaded; otherwise False.</returns>
 bool initGLExtensions()
 {
+#ifdef __ANDROID__
+	return true;
+#else
 	glCreateProgram = (PFNGLCREATEPROGRAMPROC)SDL_GL_GetProcAddress("glCreateProgram");
 	glCreateShader = (PFNGLCREATESHADERPROC)SDL_GL_GetProcAddress("glCreateShader");
 	glShaderSource = (PFNGLSHADERSOURCEPROC)SDL_GL_GetProcAddress("glShaderSource");
@@ -113,6 +119,7 @@ bool initGLExtensions()
 		&& glGetShaderInfoLog && glUseProgram && glGenBuffers && glBindBuffer && glBufferData && glDeleteBuffers
 		&& glGetAttribLocation && glGetUniformLocation && glEnableVertexAttribArray && glDisableVertexAttribArray
 		&& glVertexAttribPointer && glUniformMatrix4fv && glUniform2fv;
+#endif
 }
 
 /// <summary>
@@ -127,16 +134,20 @@ GLuint compileShader(const std::string& glslSource, GLuint shaderType)
 {
 	GLuint result = glCreateShader(shaderType);
 
-	// Prepend either VERTEX or FRAGMENT depending on shaderType
-	const char* sources[2];
+	// Prepend #version for GLES and VERTEX/FRAGMENT define
+	const char* sources[3];
+	int numSources = 0;
+#ifdef __ANDROID__
+	sources[numSources++] = "#version 100\n";
+#endif
 	if (shaderType == GL_VERTEX_SHADER)
-		sources[0] = "#define VERTEX\n";
+		sources[numSources++] = "#define VERTEX\n";
 	else if (shaderType == GL_FRAGMENT_SHADER)
-		sources[0] = "#define FRAGMENT\n";
-	sources[1] = glslSource.c_str();
+		sources[numSources++] = "#define FRAGMENT\n";
+	sources[numSources++] = glslSource.c_str();
 
 	// Set shader source and compile
-	glShaderSource(result, 2, sources, NULL);
+	glShaderSource(result, numSources, sources, NULL);
 	glCompileShader(result);
 
 	// Check if compilation was successful

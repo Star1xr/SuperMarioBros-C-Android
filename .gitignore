@@ -39,6 +39,20 @@ ipch/
 # NuGet Packages
 [Pp]ackages/*
 
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/gradle/wrapper/
+android/gradlew
+android/gradlew.bat
+*.apk
+*.aab
+
+# SDL2 source (downloaded by CI or manually)
+SDL2/
+
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*

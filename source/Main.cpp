@@ -7,7 +7,11 @@
 #include <array>
 
 #include <SDL.h>
-#include <SDL_opengl.h>
+
+#ifdef __ANDROID__
+#include <jni.h>
+#include <SDL_system.h>
+#endif
 
 #include "Emulation/Controller.hpp"
 #include "SMB/SMBEngine.hpp"
@@ -16,6 +20,7 @@
 #include "Configuration.hpp"
 #include "Constants.hpp"
 #include "OpenGLRendering.hpp"
+#include "TouchControls.hpp"
 
 uint8_t* romImage;
 static SDL_Window* window;
@@ -24,6 +29,7 @@ static SDL_Texture* texture;
 static SDL_Texture* scanlineTexture;
 static SDL_GameController* gameController;
 static SMBEngine* smbEngine = nullptr;
+static TouchControls* touchControls = nullptr;
 static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
 
 /// <summary>
@@ -32,23 +38,24 @@ static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
 /// <returns>true if the file was loaded successfully.</returns>
 static bool loadRomImage()
 {
-	FILE* file;
-	errno_t err;
-	if ((err = fopen_s(&file, Configuration::getRomFileName().c_str(), "r")) != 0)
+	SDL_RWops* file = SDL_RWFromFile(Configuration::getRomFileName().c_str(), "rb");
+	if (file == nullptr)
 	{
-		std::cout << "Failed to open the file \"" << Configuration::getRomFileName() << "\". Exiting.\n";
+		std::cout << "Failed to open the file \"" << Configuration::getRomFileName() << "\". " << SDL_GetError() << "\n";
 		return false;
 	}
 
-	// Find the size of the file
-	fseek(file, 0L, SEEK_END);
-	size_t fileSize = ftell(file);
-	fseek(file, 0L, SEEK_SET);
+	Sint64 fileSize = SDL_RWsize(file);
+	if (fileSize <= 0)
+	{
+		std::cout << "Failed to get file size for \"" << Configuration::getRomFileName() << "\".\n";
+		SDL_RWclose(file);
+		return false;
+	}
 
-	// Read the entire file into a buffer
-	romImage = new uint8_t[fileSize];
-	fread(romImage, sizeof(uint8_t), fileSize, file);
-	fclose(file);
+	romImage = new uint8_t[static_cast<size_t>(fileSize)];
+	SDL_RWread(file, romImage, sizeof(uint8_t), static_cast<size_t>(fileSize));
+	SDL_RWclose(file);
 
 	return true;
 }
@@ -91,7 +98,8 @@ static bool initialize()
 
 	// Create the SDL2 window
 	window = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		RENDER_WIDTH * Configuration::getRenderScale(), RENDER_HEIGHT * Configuration::getRenderScale(), 0);
+		RENDER_WIDTH * Configuration::getRenderScale(), RENDER_HEIGHT * Configuration::getRenderScale(),
+		SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
 	if (window == nullptr)
 	{
 		std::cout << "SDL_CreateWindow() failed during initialize(): " << SDL_GetError() << std::endl;
@@ -100,7 +108,9 @@ static bool initialize()
 
 	// Create the SDL2 renderer
 	// SDL_HINT_RENDER_DRIVER is used to specify which render driver to use. Otherwise the default is Direct3D.
+#ifndef __ANDROID__
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+#endif
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED
 		| (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0));
 	if (renderer == nullptr)
@@ -109,10 +119,11 @@ static bool initialize()
 		return false;
 	}
 
-	// Get SDL2 renderer info and make sure it's an OpenGL renderer
+	// Get SDL2 renderer info and make sure it's an OpenGL/GLES renderer
 	SDL_RendererInfo rendererInfo;
 	SDL_GetRendererInfo(renderer, &rendererInfo);
-	if (std::strncmp(rendererInfo.name, "opengl", 6) != 0)
+	if (std::strncmp(rendererInfo.name, "opengl", 6) != 0
+		&& std::strncmp(rendererInfo.name, "opengles", 8) != 0)
 	{
 		std::cout << "SDL_CreateRenderer() failed to create an OpenGL renderer" << std::endl;
 		return false;
@@ -151,6 +162,10 @@ static bool initialize()
 		}
 	}
 
+	// Initialize touch controls
+	touchControls = new TouchControls();
+	touchControls->setScale(Configuration::getRenderScale());
+
 	if (Configuration::getAudioEnabled())
 	{
 		// Initialize audio
@@ -173,12 +188,35 @@ static bool initialize()
 }
 
 /// <summary>
+/// Android vibrate helper - called from touch controls.
+/// </summary>
+void androidVibrate(int ms)
+{
+#ifdef __ANDROID__
+	JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
+	if (!env) return;
+
+	jclass clazz = env->FindClass("org/libsdl/app/SDLActivity");
+	if (!clazz) return;
+
+	jmethodID method = env->GetStaticMethodID(clazz, "vibrate", "(I)V");
+	if (!method) return;
+
+	env->CallStaticVoidMethod(clazz, method, ms);
+	env->DeleteLocalRef(clazz);
+#endif
+}
+
+/// <summary>
 /// Shutdown libraries for exit.
 /// </summary>
 static void shutdown()
 {
 	if (gameController)
 		SDL_GameControllerClose(gameController);
+
+	delete touchControls;
+	touchControls = nullptr;
 
 	SDL_CloseAudio();
 
@@ -234,6 +272,30 @@ static void mainLoop()
 					SDL_GameControllerClose(gameController);
 					gameController = 0;
 				}
+				break;
+
+			case SDL_FINGERDOWN:
+			case SDL_FINGERUP:
+			case SDL_FINGERMOTION:
+				if (smbEngine && touchControls) {
+					touchControls->handleEvent(event, smbEngine->getController1());
+				}
+				break;
+
+			case SDL_APP_WILLENTERBACKGROUND:
+				if (smbEngine) {
+					SDL_PauseAudio(1);
+				}
+				break;
+
+			case SDL_APP_DIDENTERFOREGROUND:
+				if (smbEngine) {
+					SDL_PauseAudio(0);
+				}
+				break;
+
+			case SDL_APP_TERMINATING:
+				running = false;
 				break;
 
 			default:
@@ -296,6 +358,11 @@ static void mainLoop()
 
 		engine.update();
 		engine.render(renderBuffer);
+
+		// Render touch controls on top of game frame
+		if (touchControls) {
+			touchControls->render(renderBuffer);
+		}
 
 		// Updates the texture with new information from renderBuffer.
 		SDL_UpdateTexture(texture, NULL, renderBuffer, sizeof(uint32_t) * RENDER_WIDTH);

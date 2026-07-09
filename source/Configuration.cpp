@@ -1,4 +1,5 @@
 #include <fstream>
+#include <SDL.h>
 
 #include "Configuration.hpp"
 
@@ -36,9 +37,25 @@ const std::string& ConfigurationOption::getPath() const
 
 void Configuration::initialize(const std::string& fileName)
 {
+	// On Android, use SDL's pref path for the config file
+	std::string configPath = fileName;
+#ifdef __ANDROID__
+	{
+		char* prefPath = SDL_GetPrefPath("smb", "config");
+		if (prefPath) {
+			configPath = std::string(prefPath) + fileName;
+			SDL_free(prefPath);
+		}
+		// Default ROM filename - loaded from assets on Android
+		if (romFileName.getValue() == "Super Mario Bros. (JU) (PRG0) [!].nes") {
+			romFileName.initializeValue("\"Super Mario Bros. (JU) (PRG0) [!].nes\"");
+		}
+	}
+#endif
+
 	// Check that the configuration file exists.
 	// If it does not exist, we will fall back to default values.
-	std::ifstream configFile(fileName.c_str());
+	std::ifstream configFile(configPath.c_str());
 	if (configFile.good())
 	{
 		std::string line;

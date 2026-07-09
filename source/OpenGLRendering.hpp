@@ -3,7 +3,12 @@
 
 #include <string>
 #include <SDL.h>
+
+#ifdef __ANDROID__
+#include <SDL_opengles2.h>
+#else
 #include <SDL_opengl.h>
+#endif
 
 bool loadOpenGLRendering();
 void unloadOpenGLRendering();
