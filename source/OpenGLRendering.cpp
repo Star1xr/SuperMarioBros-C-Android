@@ -349,7 +349,7 @@ uniform sampler2D Texture;\n\
 varying vec4 TEX0;\n\
 void main()\n\
 {\n\
-	gl_FragColor = texture2D(Texture, TEX0.xy);\n\
+	gl_FragColor = texture2D(Texture, TEX0.xy).bgra;\n\
 }\n\
 #endif\n";
 

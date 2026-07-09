@@ -164,7 +164,11 @@ static bool initialize()
 
 	// Initialize touch controls
 	touchControls = new TouchControls();
+#ifdef __ANDROID__
+	touchControls->setScale(10);
+#else
 	touchControls->setScale(Configuration::getRenderScale());
+#endif
 
 	if (Configuration::getAudioEnabled())
 	{
