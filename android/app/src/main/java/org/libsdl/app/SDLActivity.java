@@ -7,7 +7,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -20,8 +19,8 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected static SDLActivity instance;
     protected static SDLSurfaceView surfaceView;
 
-    public static native void nativeTouchEvent(int touchId, float x, float y, int action);
-    public static native void nativeVibrate(int durationMs);
+    /** Standard SDL2 JNI functions (implemented in libSDL2.so) */
+    public static native void onNativeTouch(int touchDevId, int pointerFingerId, int action, float x, float y, float p);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,44 +105,37 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         @Override
         public boolean onTouchEvent(MotionEvent event) {
             int action = event.getActionMasked();
-            int actionCode = 0;
-
+            int actionCode;
             switch (action) {
                 case MotionEvent.ACTION_DOWN:
                 case MotionEvent.ACTION_POINTER_DOWN:
-                    actionCode = 1;
+                    actionCode = 0;
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_POINTER_UP:
-                    actionCode = 2;
+                    actionCode = 1;
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    actionCode = 3;
+                    actionCode = 2;
                     break;
                 case MotionEvent.ACTION_CANCEL:
-                    actionCode = 4;
+                    actionCode = 3;
                     break;
+                default:
+                    return true;
             }
 
-            // Normalize coordinates to 0-1 range
-            float w = getWidth();
-            float h = getHeight();
+            float w = (float) getWidth();
+            float h = (float) getHeight();
 
-            if (action == MotionEvent.ACTION_MOVE) {
-                int pointerCount = event.getPointerCount();
-                for (int i = 0; i < pointerCount; i++) {
-                    int id = event.getPointerId(i);
-                    float x = event.getX(i) / w;
-                    float y = event.getY(i) / h;
-                    nativeTouchEvent(id, x, y, 3);
-                }
-            } else {
-                int idx = (action == MotionEvent.ACTION_POINTER_DOWN || action == MotionEvent.ACTION_POINTER_UP)
-                    ? event.getActionIndex() : 0;
-                int id = event.getPointerId(idx);
-                float x = event.getX(idx) / w;
-                float y = event.getY(idx) / h;
-                nativeTouchEvent(id, x, y, actionCode);
+            int pointerCount = event.getPointerCount();
+            for (int i = 0; i < pointerCount; i++) {
+                int id = event.getPointerId(i);
+                float x = event.getX(i) / w;
+                float y = event.getY(i) / h;
+                float p = event.getPressure(i);
+
+                onNativeTouch(0, id, actionCode, x, y, p);
             }
 
             return true;
